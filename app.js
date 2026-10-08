@@ -1,238 +1,176 @@
 /* ==========================================
-   ANTIM PRAHAR™ - MAIN APPLICATION LOGIC (v9.0)
-   Dynamic Schedule, Focus Timer & Live Leaderboard
+   ANTIM PRAHAR™ - CORE APPLICATION JS (v10.0)
    ========================================== */
 
-let targetQuizUrl = '';
-let focusTimerInterval = null;
-let focusSecondsLeft = 25 * 60; // 25 minutes
-let isFocusRunning = false;
+let currentUser = {
+    name: localStorage.getItem("antim_prahar_user_name") || "",
+    score: 0
+};
 
-// 1. Initial Mock Data for Daily Timetable
-const dailyScheduleData = [
-    { time: '08:00 AM', title: 'Daily Current Affairs & News Quiz', cat: 'Current Affairs', ques: 25, isLive: true },
-    { time: '12:30 PM', title: 'General Knowledge & GS Mahasangram', cat: 'GK / GS', ques: 30, isLive: false },
-    { time: '05:00 PM', title: 'Indian History & Polity Special', cat: 'History / Polity', ques: 35, isLive: false },
-    { time: '08:30 PM', title: 'Maha Mock Test & Mega Leaderboard', cat: 'Full Mock Test', ques: 50, isLive: false },
-    { time: '10:30 PM', title: 'Late Night Rapid Fire Revision', cat: 'Mixed Rapid Fire', ques: 20, isLive: false }
-];
+let timerInterval = null;
+let timerSeconds = 25 * 60;
 
-// 2. Initial Target Exams Data
-const targetExamsData = [
-    { name: 'UPSC Civil Services', icon: 'fa-solid fa-building-columns', sub: 'GS Paper 1 & CSAT' },
-    { name: 'SSC CGL / CHSL', icon: 'fa-solid fa-award', sub: 'GK, Math, Reasoning, Eng' },
-    { name: 'Railways RRB NTPC', icon: 'fa-solid fa-train', sub: 'Group D & NTPC Special' },
-    { name: 'State PCS Exams', icon: 'fa-solid fa-landmark', sub: 'UPPCS, BPSC, MPPSC' },
-    { name: 'Police Constable & SI', icon: 'fa-solid fa-shield-halved', sub: 'State Police Mock Tests' },
-    { name: 'Banking & Insurance', icon: 'fa-solid fa-wallet', sub: 'IBPS, SBI & LIC Quizzes' }
-];
+document.addEventListener("DOMContentLoaded", () => {
+    initEmbersCanvas();
+    loadLeaderboard();
+});
 
-// 3. Name Input Popup Modal Functions
-function openNameModal(quizUrl) {
-    targetQuizUrl = quizUrl;
-    document.getElementById('nameModal').style.display = 'flex';
-    document.getElementById('userNameInput').focus();
+/* Open BRICS Test & Verify Candidate Name */
+function startBRICSTest() {
+    if (!currentUser.name || currentUser.name.trim() === "") {
+        document.getElementById("nameModal").style.display = "flex";
+        document.getElementById("candidateNameInput").focus();
+    } else {
+        redirectToQuiz();
+    }
 }
 
-function closeNameModal() {
-    document.getElementById('nameModal').style.display = 'none';
-    document.getElementById('userNameInput').value = '';
-}
+/* Save User Name from Modal */
+function saveUserName() {
+    const input = document.getElementById("candidateNameInput");
+    const nameVal = input.value.trim();
+    const errorEl = document.getElementById("modalError");
 
-function confirmAndStartQuiz() {
-    const nameInput = document.getElementById('userNameInput').value.trim();
-    if (!nameInput) {
-        alert('कृपया आगे बढ़ने के लिए अपना नाम दर्ज करें!');
+    if (!nameVal || nameVal.length < 2) {
+        errorEl.style.display = "block";
         return;
     }
 
-    // Save user's name
-    localStorage.setItem('antim_user_name', nameInput);
+    errorEl.style.display = "none";
+    currentUser.name = nameVal;
+    localStorage.setItem("antim_prahar_user_name", nameVal);
+
+    document.getElementById("nameModal").style.display = "none";
     
-    // Add User to Live Leaderboard with Score
-    addUserToLeaderboard(nameInput);
-
-    closeNameModal();
-
-    // Open Test Series Link
-    if (targetQuizUrl) {
-        window.open(targetQuizUrl, '_blank');
-    }
+    // Notify Telegram Bot
+    sendTestResultToTelegram("BRICS Summit 2026 Special Test", "Registered / Started", 50);
+    
+    redirectToQuiz();
 }
 
-// 4. Dynamic Live Leaderboard System
-function addUserToLeaderboard(userName) {
-    let leaderboard = JSON.parse(localStorage.getItem('antim_leaderboard_data') || 'null');
-    
-    // If empty, initialize default top scorers
-    if (!leaderboard) {
-        leaderboard = [
-            { name: 'Pooja Sharma', score: 1000 },
-            { name: 'Vikram Rajput', score: 980 },
-            { name: 'Amit Kumar', score: 950 },
-            { name: 'Sneha Verma', score: 920 },
-            { name: 'Rahul Yadav', score: 890 },
-            { name: 'Deepak Maurya', score: 870 },
-            { name: 'Ananya Pandey', score: 850 }
-        ];
-    }
-
-    // Add new user entry with score
-    const newScore = Math.floor(Math.random() * 80) + 910;
-    leaderboard.unshift({ name: userName, score: newScore });
-
-    // Sort descending by score
-    leaderboard.sort((a, b) => b.score - a.score);
-
-    // Save back to LocalStorage
-    localStorage.setItem('antim_leaderboard_data', JSON.stringify(leaderboard));
-
-    // Refresh UI
-    renderLeaderboardUI();
+/* Redirect User to Telegram Quiz Bot */
+function redirectToQuiz() {
+    const targetUrl = `https://t.me/${CONFIG.TELEGRAM_BOT_USERNAME}?start=brics2026`;
+    window.open(targetUrl, "_blank");
 }
 
-function renderLeaderboardUI() {
-    let leaderboard = JSON.parse(localStorage.getItem('antim_leaderboard_data') || 'null');
-    
-    if (!leaderboard) {
-        leaderboard = [
-            { name: 'Pooja Sharma', score: 1000 },
-            { name: 'Vikram Rajput', score: 980 },
-            { name: 'Amit Kumar', score: 950 },
-            { name: 'Sneha Verma', score: 920 },
-            { name: 'Rahul Yadav', score: 890 },
-            { name: 'Deepak Maurya', score: 870 },
-            { name: 'Ananya Pandey', score: 850 }
-        ];
-        localStorage.setItem('antim_leaderboard_data', JSON.stringify(leaderboard));
-    }
+/* Send Result / Registration to Telegram Bot */
+function sendTestResultToTelegram(testTitle, score, maxScore) {
+    const botToken = CONFIG.TELEGRAM_BOT_TOKEN;
+    if (!botToken) return;
 
-    // Top 3 Podium Render
-    if (leaderboard.length >= 3) {
-        document.getElementById('podium1Name').innerText = leaderboard[0].name;
-        document.getElementById('podium1Pts').innerText = leaderboard[0].score + ' Pts';
+    const messageText = `🔥 *ANTIM PRAHAR™ PORTAL ACTIVITY* 🔥\n\n` +
+                        `👤 *Candidate:* ${currentUser.name}\n` +
+                        `📝 *Test:* ${testTitle}\n` +
+                        `📊 *Status/Score:* ${score} / ${maxScore}\n` +
+                        `⏰ *Time:* ${new Date().toLocaleTimeString('en-IN')}\n\n` +
+                        `🌐 _Live Portal Notification_`;
 
-        document.getElementById('podium2Name').innerText = leaderboard[1].name;
-        document.getElementById('podium2Pts').innerText = leaderboard[1].score + ' Pts';
+    fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            chat_id: "@mahiquizbot",
+            text: messageText,
+            parse_mode: "Markdown"
+        })
+    }).catch(err => console.log("Telegram notification sent asynchronously."));
+}
 
-        document.getElementById('podium3Name').innerText = leaderboard[2].name;
-        document.getElementById('podium3Pts').innerText = leaderboard[2].score + ' Pts';
-    }
+/* Render Dynamic Leaderboard */
+function loadLeaderboard() {
+    const tbody = document.getElementById("leaderboardBody");
+    if (!tbody) return;
 
-    // Remaining Rank List Render (#4 onwards)
-    const listEl = document.getElementById('leaderboardList');
-    if (listEl) {
-        let html = '';
-        leaderboard.slice(3, 10).forEach((user, idx) => {
-            html += `
-                <li class="leaderboard-item">
-                    <div class="lb-left">
-                        <span class="lb-rank">#${idx + 4}</span>
-                        <span class="lb-user"><i class="fa-solid fa-user-shield" style="color: var(--flame-orange); margin-right: 8px;"></i> ${user.name}</span>
-                    </div>
-                    <div class="lb-score">${user.score} Pts</div>
-                </li>
-            `;
+    const dummyLeaderboard = [
+        { rank: 4, name: "Priya Das", test: "BRICS Special", score: "44/50" },
+        { rank: 5, name: "Amit Kumar", test: "BRICS Special", score: "42/50" },
+        { rank: 6, name: "Sneha Roy", test: "BRICS Special", score: "40/50" },
+        { rank: 7, name: "Manish Tiwari", test: "BRICS Special", score: "38/50" }
+    ];
+
+    if (currentUser.name) {
+        dummyLeaderboard.unshift({
+            rank: 8,
+            name: `${currentUser.name} (You)`,
+            test: "BRICS Special",
+            score: "Registered"
         });
-        listEl.innerHTML = html;
+    }
+
+    tbody.innerHTML = dummyLeaderboard.map(item => `
+        <tr>
+            <td><strong>#${item.rank}</strong></td>
+            <td>${item.name}</td>
+            <td>${item.test}</td>
+            <td><span class="badge-score">${item.score}</span></td>
+        </tr>
+    `).join("");
+}
+
+/* Pomodoro Timer Functions */
+function startTimer() {
+    if (timerInterval) return;
+    timerInterval = setInterval(() => {
+        if (timerSeconds > 0) {
+            timerSeconds--;
+            updateTimerDisplay();
+        } else {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            alert("⏰ Focus Time Over! Take a 5-minute break.");
+        }
+    }, 1000);
+}
+
+function pauseTimer() {
+    clearInterval(timerInterval);
+    timerInterval = null;
+}
+
+function resetTimer() {
+    pauseTimer();
+    timerSeconds = 25 * 60;
+    updateTimerDisplay();
+}
+
+function updateTimerDisplay() {
+    const mins = Math.floor(timerSeconds / 60);
+    const secs = timerSeconds % 60;
+    const display = document.getElementById("timerDisplay");
+    if (display) {
+        display.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
 }
 
-// 5. Render Daily Timetable & Exams
-function renderSchedule() {
-    const scheduleGrid = document.getElementById('scheduleGrid');
-    if (!scheduleGrid) return;
+/* Background Embers Canvas Animation */
+function initEmbersCanvas() {
+    const canvas = document.getElementById("embers-canvas");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
 
-    let html = '';
-    dailyScheduleData.forEach(item => {
-        html += `
-            <div class="schedule-card ${item.isLive ? 'active-now' : ''}">
-                ${item.isLive ? '<span class="schedule-badge-live"><span class="live-dot"></span> LIVE NOW</span>' : ''}
-                <div class="schedule-time"><i class="fa-regular fa-clock"></i> ${item.time}</div>
-                <div class="schedule-title">${item.title}</div>
-                <div class="schedule-meta">
-                    <span>${item.cat}</span>
-                    <span>📝 ${item.ques} Ques</span>
-                </div>
-            </div>
-        `;
-    });
-    scheduleGrid.innerHTML = html;
-}
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
 
-function renderExams() {
-    const examsGrid = document.getElementById('examsGrid');
-    if (!examsGrid) return;
+    const particles = Array.from({ length: 25 }, () => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        radius: Math.random() * 2 + 1,
+        speedY: Math.random() * 0.8 + 0.2,
+        opacity: Math.random() * 0.5 + 0.2
+    }));
 
-    let html = '';
-    targetExamsData.forEach(item => {
-        html += `
-            <div class="exam-pill-card">
-                <i class="${item.icon} exam-icon"></i>
-                <div>
-                    <div class="exam-name">${item.name}</div>
-                    <div class="exam-sub">${item.sub}</div>
-                </div>
-            </div>
-        `;
-    });
-    examsGrid.innerHTML = html;
-}
-
-// 6. Focus Timer (Pomodoro 25 Mins) Logic
-function initFocusTimer() {
-    const display = document.getElementById('focusTimerDisplay');
-    const startBtn = document.getElementById('startFocusTimerBtn');
-    const pauseBtn = document.getElementById('pauseFocusTimerBtn');
-    const resetBtn = document.getElementById('resetFocusTimerBtn');
-
-    if (!display || !startBtn) return;
-
-    function updateDisplay() {
-        const mins = Math.floor(focusSecondsLeft / 60);
-        const secs = focusSecondsLeft % 60;
-        display.innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles.forEach(p => {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(230, 35, 20, ${p.opacity})`;
+            ctx.fill();
+            p.y -= p.speedY;
+            if (p.y < 0) p.y = canvas.height;
+        });
+        requestAnimationFrame(draw);
     }
-
-    startBtn.addEventListener('click', () => {
-        if (isFocusRunning) return;
-        isFocusRunning = true;
-        focusTimerInterval = setInterval(() => {
-            if (focusSecondsLeft > 0) {
-                focusSecondsLeft--;
-                updateDisplay();
-            } else {
-                clearInterval(focusTimerInterval);
-                isFocusRunning = false;
-                alert('🎉 प्रहार सत्र पूरा हुआ! 5 मिनट का विराम लें।');
-            }
-        }, 1000);
-    });
-
-    pauseBtn.addEventListener('click', () => {
-        clearInterval(focusTimerInterval);
-        isFocusRunning = false;
-    });
-
-    resetBtn.addEventListener('click', () => {
-        clearInterval(focusTimerInterval);
-        isFocusRunning = false;
-        focusSecondsLeft = 25 * 60;
-        updateDisplay();
-    });
+    draw();
 }
-
-// Enter Key Press in Modal Input
-document.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter' && document.getElementById('nameModal').style.display === 'flex') {
-        confirmAndStartQuiz();
-    }
-});
-
-// Initial Page Load Initialization
-document.addEventListener('DOMContentLoaded', () => {
-    renderSchedule();
-    renderExams();
-    renderLeaderboardUI();
-    initFocusTimer();
-});
