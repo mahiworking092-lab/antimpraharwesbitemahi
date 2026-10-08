@@ -1,6 +1,6 @@
 /* ==========================================
-   ANTIM PRAHAR™ - COMPLETE STYLESHEET (v9.0)
-   Full Width, Light Mode, Test Series & Modal
+   ANTIM PRAHAR™ - COMPLETE STYLESHEET (v10.0)
+   Full Width, Light Mode, Test Series, Modal & Logo Fallback
    ========================================== */
 
 :root {
@@ -349,7 +349,7 @@ h1, h2, h3, h4, .brand-font {
     font-size: 0.95rem;
 }
 
-/* Poster Artwork */
+/* Poster Artwork & Fallback Styling */
 .hero-visual-card {
     position: relative;
     display: flex;
@@ -375,6 +375,39 @@ h1, h2, h3, h4, .brand-font {
     height: 100%;
     object-fit: cover;
     border-radius: 50%;
+}
+
+.poster-fallback {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, var(--crimson-primary), var(--flame-orange), var(--gold-accent));
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 1.5rem;
+    color: #ffffff;
+}
+
+.poster-fallback i {
+    font-size: 3.5rem;
+    color: #ffffff;
+    margin-bottom: 0.5rem;
+}
+
+.poster-fallback span {
+    font-size: 1.5rem;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.poster-fallback small {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.95);
+    letter-spacing: 1px;
 }
 
 .floating-stat-badge {
